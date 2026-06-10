@@ -484,7 +484,7 @@ function parseVerifyData(items) {
 // ══════════════════════════════════════════
 // 渲染
 // ══════════════════════════════════════════
-function formatMoney(v) { return '¥' + parseFloat(v).toLocaleString('zh-CN',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function formatMoney(v) { const n=parseFloat(v); return (n<0?'-¥':'¥')+Math.abs(n).toLocaleString('zh-CN',{minimumFractionDigits:2,maximumFractionDigits:2}); }
 
 function renderContent(data, isSell) {
   const div = document.getElementById('contentArea');
@@ -498,7 +498,7 @@ function renderContent(data, isSell) {
     html += '<div class="summ-item"><label>总票数</label><div class="v">'+data.summary.totalCount+'张</div></div>';
     html += '<div class="summ-item"><label>总金额</label><div class="v">'+formatMoney(data.summary.totalAmount)+'</div></div>';
     html += '<div class="summ-item"><label>退票数</label><div class="v">'+data.summary.refundCount+'张</div></div>';
-    html += '<div class="summ-item"><label>退款金额</label><div class="v">'+formatMoney(data.summary.refundAmount)+'</div></div>';
+    html += '<div class="summ-item"><label>退款金额</label><div class="v">'+formatMoney(-data.summary.refundAmount)+'</div></div>';
     html += '<div class="summ-item"><label>实际票数</label><div class="v">'+data.summary.actualCount+'张</div></div>';
     html += '<div class="summ-item"><label>实际金额</label><div class="v">'+formatMoney(data.summary.actualAmount)+'</div></div>';
   } else {
@@ -530,7 +530,7 @@ function renderContent(data, isSell) {
       if (!isSell) html += '<span style="width:70px;font-size:13px;color:#757575">'+item.verifier+'</span>';
       html += '<span class="ticket-type">'+item.ticketType+'</span>';
       html += '<span class="ticket-count">'+item.count+'张</span>';
-      if (isSell) html += '<span class="ticket-refund">'+(item.refundCount>0?item.refundCount+'张':'')+'</span>';
+      if (isSell) html += '<span class="ticket-refund">'+item.refundCount+'张</span>';
       html += '<span class="ticket-amount">'+formatMoney(item.amount)+'</span>';
       html += '</div>';
     }
