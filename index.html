@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>票务统计</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background:#f5f5f5; color:#212121; min-height:100vh; }
+
+/* ── 登录页 ── */
+.login-page { display:flex; align-items:center; justify-content:center; min-height:100vh; background:#2196F3; padding:20px; }
+.login-card { background:#fff; border-radius:12px; padding:32px 24px; width:100%; max-width:380px; box-shadow:0 8px 32px rgba(0,0,0,0.2); }
+.login-card h1 { text-align:center; font-size:26px; color:#2196F3; margin-bottom:4px; }
+.login-card .subtitle { text-align:center; font-size:14px; color:#757575; margin-bottom:28px; }
+.login-card input { width:100%; padding:12px 14px; border:1px solid #bdbdbd; border-radius:8px; font-size:15px; outline:none; margin-bottom:14px; transition:border-color 0.2s; }
+.login-card input:focus { border-color:#2196F3; }
+.login-card .remember { display:flex; align-items:center; gap:8px; margin-bottom:20px; font-size:14px; color:#757575; cursor:pointer; }
+.login-card .remember input { width:auto; margin:0; }
+.login-card button { width:100%; padding:12px; background:#2196F3; color:#fff; border:none; border-radius:8px; font-size:16px; font-weight:600; cursor:pointer; height:48px; transition:opacity 0.2s; }
+.login-card button:disabled { opacity:0.6; cursor:not-allowed; }
+.login-card .error { color:#D32F2F; text-align:center; margin-top:14px; font-size:14px; }
+.spinner { display:inline-block; width:22px; height:22px; border:2px solid rgba(255,255,255,0.3); border-top-color:#fff; border-radius:50%; animation:spin 0.6s linear infinite; }
+@keyframes spin { to { transform:rotate(360deg); } }
+
+/* ── 主面板 ── */
+.main-page { display:none; }
+.topbar { background:#2196F3; color:#fff; padding:12px 16px; display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:10; box-shadow:0 2px 8px rgba(0,0,0,0.15); }
+.topbar h2 { font-size:18px; font-weight:700; }
+.topbar .actions { display:flex; gap:4px; }
+.topbar .actions button { background:none; border:none; color:#fff; padding:8px 12px; border-radius:6px; cursor:pointer; font-size:14px; }
+.topbar .actions button:hover { background:rgba(255,255,255,0.15); }
+
+.tabs { display:flex; background:#fff; border-bottom:2px solid #e0e0e0; }
+.tab { flex:1; padding:14px; text-align:center; cursor:pointer; font-size:15px; font-weight:500; color:#757575; border-bottom:3px solid transparent; transition:all 0.2s; }
+.tab.active { color:#2196F3; border-bottom-color:#2196F3; }
+
+/* ── 日期选择 ── */
+.date-bar { display:flex; gap:10px; padding:12px 16px; background:#fff; align-items:center; flex-wrap:wrap; }
+.date-bar label { font-size:13px; color:#757575; }
+.date-bar input[type=date] { padding:8px 10px; border:1px solid #bdbdbd; border-radius:6px; font-size:14px; outline:none; }
+.date-bar input[type=date]:focus { border-color:#2196F3; }
+.date-bar button { padding:8px 18px; background:#2196F3; color:#fff; border:none; border-radius:6px; font-size:14px; cursor:pointer; font-weight:500; }
+
+.content { padding:14px; max-width:800px; margin:0 auto; }
+
+/* ── 汇总卡片 ── */
+.summary { background:#fff; border-radius:10px; padding:18px; box-shadow:0 2px 8px rgba(0,0,0,0.08); margin-bottom:14px; }
+.summary h3 { font-size:17px; color:#2196F3; margin-bottom:14px; }
+.summary-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(110px,1fr)); gap:12px; }
+.summ-item label { font-size:12px; color:#757575; display:block; }
+.summ-item .v { font-size:17px; font-weight:600; color:#212121; margin-top:2px; }
+
+/* ── 平台卡片 ── */
+.platform-card { background:#fff; border-radius:10px; box-shadow:0 2px 8px rgba(0,0,0,0.08); margin-bottom:12px; overflow:hidden; }
+.platform-header { padding:12px 16px; color:#fff; display:flex; justify-content:space-between; align-items:center; }
+.platform-header .name { font-size:16px; font-weight:700; }
+.platform-header .stat { font-size:13px; opacity:0.95; }
+.platform-body { padding:0 14px; }
+.platform-row { display:flex; justify-content:space-between; align-items:center; padding:11px 0; border-bottom:1px solid #f0f0f0; }
+.platform-row:last-child { border-bottom:none; }
+.platform-row .ticket-type { flex:1; font-size:14px; color:#212121; }
+.platform-row .ticket-count { width:55px; text-align:center; font-size:14px; font-weight:500; }
+.platform-row .ticket-refund { width:55px; text-align:center; font-size:13px; color:#FF5722; }
+.platform-row .ticket-amount { width:85px; text-align:right; font-size:14px; font-weight:600; color:#2196F3; }
+.platform-header-row { display:flex; justify-content:space-between; padding:8px 14px; background:#fafafa; font-size:12px; font-weight:700; color:#757575; }
+
+/* ── 平台颜色 ── */
+.c-local { background:#4CAF50; }
+.c-miniprogram { background:#2196F3; }
+.c-team { background:#81C784; }
+.c-douyin { background:#E91E63; }
+.c-meituan { background:#FF9800; }
+.c-yunyou { background:#9C27B0; }
+
+/* ── 加载/错误 ── */
+.loading-box { text-align:center; padding:60px 20px; }
+.error-box { text-align:center; padding:40px 20px; color:#D32F2F; }
+.error-box button { margin-top:14px; padding:8px 24px; background:#2196F3; color:#fff; border:none; border-radius:6px; cursor:pointer; }
+
+/* ── 退出对话框 ── */
+.dialog-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.4); z-index:100; justify-content:center; align-items:center; }
+.dialog-overlay.show { display:flex; }
+.dialog { background:#fff; border-radius:12px; padding:24px; width:90%; max-width:320px; }
+.dialog p { margin-bottom:20px; font-size:15px; }
+.dialog-buttons { display:flex; gap:10px; justify-content:flex-end; }
+.dialog-buttons button { padding:8px 20px; border-radius:6px; border:1px solid #bdbdbd; background:#fff; cursor:pointer; font-size:14px; }
+.dialog-buttons .btn-confirm { background:#D32F2F; color:#fff; border:none; }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════ 登录页 ═══════════════ -->
+<div class="login-page" id="loginPage">
+  <div class="login-card">
+    <h1>票务统计</h1>
+    <p class="subtitle">登录系统</p>
+    <input type="text" id="username" placeholder="请输入账号" autocomplete="username">
+    <input type="password" id="password" placeholder="请输入密码" autocomplete="current-password">
+    <label class="remember"><input type="checkbox" id="rememberPwd"> 记住密码</label>
+    <button id="loginBtn" onclick="login()">登录</button>
+    <p class="error" id="loginError" style="display:none"></p>
+  </div>
+</div>
+
+<!-- ═══════════════ 主面板 ═══════════════ -->
+<div class="main-page" id="mainPage">
+  <div class="topbar">
+    <h2>票务统计</h2>
+    <div class="actions">
+      <button onclick="refreshData()">刷新</button>
+      <button onclick="showLogoutDialog()">退出</button>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" id="tabSell" onclick="switchTab(0)">售票统计</div>
+    <div class="tab" id="tabVerify" onclick="switchTab(1)">核销统计</div>
+  </div>
+
+  <div class="date-bar">
+    <label>日期范围：</label>
+    <input type="date" id="startDate">
+    <span style="color:#757575">至</span>
+    <input type="date" id="endDate">
+    <button onclick="refreshData()">查询</button>
+  </div>
+
+  <div class="content" id="contentArea"></div>
+</div>
+
+<!-- ═══════════════ 退出对话框 ═══════════════ -->
+<div class="dialog-overlay" id="logoutDialog">
+  <div class="dialog">
+    <p>确定退出登录？</p>
+    <div class="dialog-buttons">
+      <button onclick="hideLogoutDialog()">取消</button>
+      <button class="btn-confirm" onclick="logout()">退出</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════
+// 配置
+// ══════════════════════════════════════════
+const SAAS_API = 'https://saas.ip239.com';
+const TOUR_API = 'https://tour.ip239.com';
+
+// ══════════════════════════════════════════
+// MD5 实现（与安卓端加密方式一致）
+// ══════════════════════════════════════════
+function md5(str) {
+  function r(n,c){return(n<<c)|(n>>>(32-c))}
+  function q(x,a,b,c,d,k,s,t){
+    const f=x[a]+((t=x[b])&(x[c])|~(t)&(x[d]))+k
+    x[a]=t+r(f,s)+x[a]|0
+  }
+  function h(x,a,b,c,d,k,s,t){
+    const f=x[a]+(x[b]&(x[d])|(x[c])&~(x[d]))+k
+    x[a]=t+r(f,s)+x[a]|0
+  }
+  function i(x,a,b,c,d,k,s,t){
+    const f=x[a]+(x[b]^x[c]^x[d])+k
+    x[a]=t+r(f,s)+x[a]|0
+  }
+  function j(x,a,b,c,d,k,s,t){
+    const f=x[a]+(x[c]^(x[b]|~(x[d])))+k
+    x[a]=t+r(f,s)+x[a]|0
+  }
+  const utf8 = unescape(encodeURIComponent(str));
+  let n = utf8.length;
+  const m = [];
+  for (let i = 0; i < n; i++) m[i>>2] |= utf8.charCodeAt(i) << ((i%4)*8);
+  m[n>>2] |= 0x80 << ((n%4)*8);
+  m[(((n+8)>>6)<<4)+14] = n*8;
+  const K = [0x67452301,0xefcdab89,0x98badcfe,0x10325476];
+  for (let b=0; b<m.length; b+=16) {
+    const x = K.slice();
+    for (let i=0; i<16; i++) x[i+4]=m[b+i]||0;
+    for (let t=0; t<64; t++) {
+      const s=[7,12,17,22,5,9,14,20,4,11,16,23,6,10,15,21][t%16+(Math.floor(t/16)*4)];
+      const k=[0xd76aa478,0xe8c7b756,0x242070db,0xc1bdceee,0xf57c0faf,0x4787c62a,0xa8304613,0xfd469501,0x698098d8,0x8b44f7af,0xffff5bb1,0x895cd7be,0x6b901122,0xfd987193,0xa679438e,0x49b40821,0xf61e2562,0xc040b340,0x265e5a51,0xe9b6c7aa,0xd62f105d,0x02441453,0xd8a1e681,0xe7d3fbc8,0x21e1cde6,0xc33707d6,0xf4d50d87,0x455a14ed,0xa9e3e905,0xfcefa3f8,0x676f02d9,0x8d2a4c8a,0xfffa3942,0x8771f681,0x6d9d6122,0xfde5380c,0xa4beea44,0x4bdecfa9,0xf6bb4b60,0xbebfbc70,0x289b7ec6,0xeaa127fa,0xd4ef3085,0x04881d05,0xd9d4d039,0xe6db99e5,0x1fa27cf8,0xc4ac5665,0xf4292244,0x432aff97,0xab9423a7,0xfc93a039,0x655b59c3,0x8f0ccc92,0xffeff47d,0x85845dd1,0x6fa87e4f,0xfe2ce6e0,0xa3014314,0x4e0811a1,0xf7537e82,0xbd3af235,0x2ad7d2bb,0xeb86d391][t];
+      if(t<16) q(x,0,1,2,3,s,k,t);
+      else if(t<32) h(x,0,1,2,3,s,k,t%32);
+      else if(t<48) i(x,0,1,2,3,s,k,t%48);
+      else j(x,0,1,2,3,s,k,t%48);
+      x.unshift(x.pop());
+    }
+    for (let i=0; i<4; i++) K[i]=(K[i]+x[i])|0;
+  }
+  return K.map(v=>('0000000'+(v>>>0).toString(16)).slice(-8)).join('');
+}
+
+// ══════════════════════════════════════════
+// 状态
+// ══════════════════════════════════════════
+let token = '';
+let currentTab = 0; // 0=售票, 1=核销
+let sellData = null;
+let verifyData = null;
+
+// ══════════════════════════════════════════
+// localStorage 持久化
+// ══════════════════════════════════════════
+function saveLogin() {
+  const p = { t:token, u:userId, un:userName, o:organizeId };
+  localStorage.setItem('ticket_login', JSON.stringify(p));
+}
+function loadLogin() {
+  try {
+    const p = JSON.parse(localStorage.getItem('ticket_login'));
+    if (p && p.t) { token = p.t; userId = p.u; userName = p.un; organizeId = p.o; return true; }
+  } catch(e) {}
+  return false;
+}
+function saveRemember(usr, pwd) {
+  localStorage.setItem('ticket_remember', JSON.stringify({u:usr,p:pwd}));
+}
+function loadRemember() {
+  try {
+    const d = JSON.parse(localStorage.getItem('ticket_remember'));
+    if (d) { document.getElementById('username').value = d.u || ''; document.getElementById('password').value = d.p || ''; document.getElementById('rememberPwd').checked = true; }
+  } catch(e) {}
+}
+
+let userId = '', userName = '', organizeId = '';
+
+// ══════════════════════════════════════════
+// API 调用
+// ══════════════════════════════════════════
+async function apiLogin(username, password) {
+  const encryptedPassword = md5(password);
+  const res = await fetch(`${SAAS_API}/Api/LoginUser`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      UserName: username,
+      PassWord: encryptedPassword,
+      PlatformType: 0,
+      OrganId: null,
+      Token: null
+    })
+  });
+  const data = await res.json();
+  if (data.resultcode === '200' && data.data) {
+    return data.data;
+  }
+  throw new Error(data.resultcontent || '登录失败');
+}
+
+async function apiGetSellReport(startDate, endDate) {
+  const res = await fetch(`${TOUR_API}/Report/ComprehensiveReport`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      StartDate: startDate,
+      EndDate: endDate,
+      DateType: 1,
+      ReportType: 1,
+      Token: token
+    })
+  });
+  const data = await res.json();
+  if (data.resultcode) {
+    throw new Error(data.resultcontent || '请求失败');
+  }
+  return parseSellData(data.data || []);
+}
+
+async function apiGetVerifyReport(startDate, endDate) {
+  const res = await fetch(`${TOUR_API}/Report/VerificationReport`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      StartDate: startDate,
+      EndDate: endDate,
+      Token: token
+    })
+  });
+  const data = await res.json();
+  if (data.resultcode) {
+    throw new Error(data.resultcontent || '请求失败');
+  }
+  return parseVerifyData(data.data || []);
+}
+
+// ══════════════════════════════════════════
+// 票种配置表（与安卓端完全一致）
+// ══════════════════════════════════════════
+const TICKET_GROUPS = {
+  '17288': { name:'自我游测试票', group:'自我游', price:0.01 },
+  '17291': { name:'西津野渡常规成人票', group:'自我游', price:125.0 },
+  '17292': { name:'西津野渡常规儿童票', group:'自我游', price:65.0 },
+  '17293': { name:'常规成人票（旺季）', group:'门票', price:128.0 },
+  '17294': { name:'常规儿童票', group:'门票', price:68.0 },
+  '17343': { name:'成人票（旺季）', group:'小程序', price:124.5 },
+  '17376': { name:'儿童票', group:'小程序', price:68.0 },
+  '17451': { name:'西津野渡成人自我游', group:'自我游', price:102.5 },
+  '17452': { name:'西津野渡自我游儿童', group:'自我游', price:55.7 },
+  '17604': { name:'团队成人票', group:'门票', price:0.0 },
+  '17605': { name:'民宿票（旺季）', group:'门票', price:110.0 },
+  '17606': { name:'团队儿童票', group:'门票', price:0.0 },
+  '17607': { name:'免费票', group:'门票', price:0.0 },
+  '17608': { name:'招待票', group:'门票', price:0.0 },
+  '17826': { name:'活动票（高铁）', group:'门票', price:80.0 },
+  '18278': { name:'成人自我游', group:'自我游', price:77.9 },
+  '18281': { name:'常规成人票（淡季）', group:'门票', price:128.0 },
+  '18282': { name:'民宿票（淡季）', group:'门票', price:85.0 },
+  '18283': { name:'成人票（淡季）', group:'小程序', price:95.0 },
+  '21344': { name:'汇宁一卡通（成人）', group:'一卡通', price:128.0 },
+  '21345': { name:'汇宁一卡通（儿童）', group:'一卡通', price:68.0 },
+  '21678': { name:'包筏', group:'门票', price:1800.0 },
+  '22876': { name:'套票（E）', group:'门票', price:70.0 },
+  '26546': { name:'元旦活动票（直播）', group:'门票', price:70.0 },
+  '27281': { name:'成人票（淡季）抖音', group:'抖音', price:95.0 },
+  '27285': { name:'儿童票抖音', group:'抖音', price:68.0 },
+  '27470': { name:'成人票（淡季）美团', group:'美团', price:95.0 },
+  '27472': { name:'儿童票美团', group:'美团', price:68.0 },
+  '27501': { name:'成人票（淡季）抖音安徽文旅专享', group:'抖音', price:95.0 },
+  '27627': { name:'云游宁国成人票', group:'门票', price:0.0 },
+  '27628': { name:'云游宁国儿童票', group:'门票', price:0.0 },
+  '27657': { name:'儿童票（淡季）抖音安徽文旅专享', group:'抖音', price:68.0 },
+  '27660': { name:'清明活动票成人票', group:'门票', price:90.0 },
+  '27661': { name:'清明活动票儿童票', group:'门票', price:60.0 },
+  '27875': { name:'成人票（旺季）抖音125', group:'抖音', price:125.0 },
+  '27876': { name:'儿童票旺季抖音', group:'抖音', price:68.0 },
+  '27887': { name:'成人票（旺季）美团125', group:'美团', price:125.0 },
+  '27888': { name:'儿童票旺季美团', group:'美团', price:68.0 },
+  '28516': { name:'成人票（旺季）抖音文博会专用', group:'抖音', price:110.0 },
+  '28517': { name:'儿童票旺季抖音文博会专用', group:'抖音', price:68.0 },
+  '28583': { name:'亲子套票旺季（1大1小）', group:'小程序', price:180.0 },
+  '28584': { name:'合家欢套票旺季（2大1小）', group:'小程序', price:302.0 },
+  '28585': { name:'全家福套票旺季（2大2小）', group:'小程序', price:365.0 },
+  '28586': { name:'亲子套票抖音（1大1小）旺季', group:'抖音', price:180.0 },
+  '28587': { name:'合家欢套票抖音（2大1小）旺季', group:'抖音', price:302.0 },
+  '28588': { name:'全家福套票抖音（2大2小）旺季', group:'抖音', price:365.0 },
+  '28589': { name:'全家福套票美团（2大2小）旺季', group:'美团', price:365.0 },
+  '28590': { name:'合家欢套票美团（2大1小）旺季', group:'美团', price:302.0 },
+  '28591': { name:'亲子套票美团（1大1小）旺季', group:'美团', price:180.0 },
+  '28595': { name:'成人票（旺季）抖音', group:'抖音', price:124.5 },
+  '28596': { name:'成人票（旺季）美团', group:'美团', price:124.5 }
+};
+
+// ══════════════════════════════════════════
+// 平台判断
+// ══════════════════════════════════════════
+function getPlatformInfo(ticketId, ticketName, getMethod) {
+  const info = TICKET_GROUPS[ticketId];
+  if (info) {
+    switch (info.group) {
+      case '小程序': return { key:'miniprogram', name:'小程序（网售）' };
+      case '抖音': return { key:'douyin', name:'抖音' };
+      case '美团': return { key:'meituan', name:'美团' };
+      case '门票': return resolveTicketPlatform(ticketName);
+      case '自我游': case '一卡通': return { key:'local', name:'本地系统' };
+      default: return { key:'local', name:'本地系统' };
+    }
+  }
+  const m = (getMethod||'').toLowerCase();
+  const n = (ticketName||'').toLowerCase();
+  if (m.includes('抖音')||n.includes('抖音')) return { key:'douyin', name:'抖音' };
+  if (m.includes('美团')||n.includes('美团')) return { key:'meituan', name:'美团' };
+  if (m.includes('小程序')||m.includes('平台小程序')) return { key:'miniprogram', name:'小程序（网售）' };
+  return resolveTicketPlatform(ticketName);
+}
+
+function resolveTicketPlatform(name) {
+  const n = (name||'').toLowerCase();
+  if (n.includes('团队')) return { key:'team', name:'团队（本地系统）' };
+  if (n.includes('云游宁国')) return { key:'yunyou', name:'云游宁国（本地系统）' };
+  return { key:'local', name:'本地系统' };
+}
+
+// ══════════════════════════════════════════
+// 平台排序
+// ══════════════════════════════════════════
+const PLATFORM_ORDER = { local:1, miniprogram:2, team:3, douyin:4, meituan:5, yunyou:6 };
+
+function platformSort(p){ return PLATFORM_ORDER[p]||99; }
+
+function ticketSortOrder(name, plat) {
+  const n = (name||'').toLowerCase();
+  switch(plat) {
+    case 'local': return n.includes('成人票')&&!n.includes('团队')&&!n.includes('云游宁国')?1:n.includes('儿童票')&&!n.includes('团队')&&!n.includes('云游宁国')?2:n.includes('民宿票')||n.includes('民宿')?3:n.includes('免费票')||n.includes('免费')?4:99;
+    case 'miniprogram': return n.includes('成人票')?1:n.includes('儿童票')?2:n.includes('亲子套票')?3:n.includes('合家欢套票')?4:n.includes('全家福套票')?5:99;
+    case 'team': return n.includes('团队成人票')?1:n.includes('团队儿童票')?2:99;
+    case 'douyin': case 'meituan': return n.includes('成人票')&&n.includes('旺季')&&!n.includes('124.5')?1:n.includes('成人票')&&n.includes('124.5')?2:n.includes('成人票')&&!n.includes('旺季')?3:n.includes('儿童票')?4:n.includes('亲子套票')?5:n.includes('合家欢套票')?6:n.includes('全家福套票')?7:99;
+    case 'yunyou': return n.includes('云游宁国')&&n.includes('成人票')?1:n.includes('云游宁国')&&n.includes('儿童票')?2:99;
+    default: return 99;
+  }
+}
+
+function platformColorClass(key) {
+  return 'c-'+key;
+}
+
+// ══════════════════════════════════════════
+// 数据解析（与安卓端逻辑一致）
+// ══════════════════════════════════════════
+function fmtYuan(fen) {
+  return (parseFloat(fen||0) / 100).toFixed(2);
+}
+
+function parseSellData(items) {
+  const mergeMap = {};
+  for (const item of items||[]) {
+    const tn = item.TickName, ti = item.TickId;
+    if (!tn || tn.includes('合计') || !ti) continue;
+    if (!mergeMap[ti]) mergeMap[ti] = [];
+    mergeMap[ti].push(item);
+  }
+
+  const platformMap = {};
+  for (const [tid, arr] of Object.entries(mergeMap)) {
+    const first = arr[0];
+    const platInfo = getPlatformInfo(tid, first.TickName, first.GetMethod);
+    const pkey = platInfo.key;
+    if (!platformMap[pkey]) platformMap[pkey] = { name:platInfo.name, key:pkey, items:{} };
+    if (!platformMap[pkey].items[tid]) platformMap[pkey].items[tid] = { name:first.TickName, items:[] };
+    platformMap[pkey].items[tid].items.push(...arr);
+  }
+
+  // 汇总
+  const allItems = items||[];
+  let totalSell=0, totalMoney=0, totalReturn=0, totalReturnMoney=0;
+  for (const it of allItems) {
+    totalSell += parseInt(it.SellCount||0);
+    totalMoney += parseFloat(it.SellMoney||0);
+    totalReturn += parseInt(it.ReturnCount||0);
+    totalReturnMoney += parseFloat(it.ReturnMoney||0);
+  }
+  const summary = {
+    totalCount: totalSell, totalAmount: fmtYuan(totalMoney),
+    refundCount: totalReturn, refundAmount: fmtYuan(totalReturnMoney),
+    actualCount: totalSell - totalReturn, actualAmount: fmtYuan(totalMoney - totalReturnMoney)
+  };
+
+  // 平台分组
+  const platforms = [];
+  for (const pk of Object.keys(platformMap).sort((a,b)=>platformSort(a)-platformSort(b))) {
+    const pd = platformMap[pk];
+    const ticketList = Object.entries(pd.items).map(([tid, td]) => {
+      const sc = td.items.reduce((s,i)=>s+(parseInt(i.SellCount||0)),0);
+      const sm = td.items.reduce((s,i)=>s+(parseFloat(i.SellMoney||0)),0);
+      const rc = td.items.reduce((s,i)=>s+(parseInt(i.ReturnCount||0)),0);
+      const rm = td.items.reduce((s,i)=>s+(parseFloat(i.ReturnMoney||0)),0);
+      return { ticketType:td.name+' ('+tid+')', count:sc, amount:fmtYuan(sm-rm), refundCount:rc, refundAmount:fmtYuan(rm), sort:ticketSortOrder(td.name, pk) };
+    });
+    ticketList.sort((a,b)=>a.sort-b.sort);
+    const tc = ticketList.reduce((s,i)=>s+i.count,0);
+    const ta = ticketList.reduce((s,i)=>s+parseFloat(i.amount),0);
+    platforms.push({ platform:pd.name, key:pd.key, items:ticketList, totalCount:tc, totalAmount:ta.toFixed(2) });
+  }
+  return { summary, platforms };
+}
+
+function parseVerifyData(items) {
+  const mergeMap = {};
+  for (const item of items||[]) {
+    const tn = item.TickName, ti = item.TickId, verifier = (item.ManagerName||'').trim();
+    if (verifier.includes('合计') || !tn || !ti) continue;
+    if (!mergeMap[ti]) mergeMap[ti] = [];
+    mergeMap[ti].push(item);
+  }
+
+  const platformMap = {};
+  for (const [tid, arr] of Object.entries(mergeMap)) {
+    const first = arr[0];
+    const platInfo = getPlatformInfo(tid, first.TickName, first.GetMethod);
+    const pkey = platInfo.key;
+    if (!platformMap[pkey]) platformMap[pkey] = { name:platInfo.name, key:pkey, items:[] };
+    const allVerifiers = [...new Set(arr.map(i=>(i.ManagerName||'').trim()))].sort().join(' + ');
+    const tc = arr.reduce((s,i)=>s+(parseInt(i.TickCount||0)),0);
+    const ta = arr.reduce((s,i)=>s+(parseFloat(i.SellMoney||0)),0);
+    platformMap[pkey].items.push({
+      ticketType: first.TickName+' ('+tid+')',
+      verifier: allVerifiers,
+      count: tc,
+      amount: fmtYuan(ta),
+      sort: ticketSortOrder(first.TickName, pkey)
+    });
+  }
+
+  // 汇总
+  let totalCount=0, totalAmount=0;
+  for (const it of items||[]) { totalCount+=parseInt(it.TickCount||0); totalAmount+=parseFloat(it.SellMoney||0); }
+  const summary = { totalCount, totalAmount: fmtYuan(totalAmount) };
+
+  // 平台分组
+  const platforms = [];
+  for (const pk of Object.keys(platformMap).sort((a,b)=>platformSort(a)-platformSort(b))) {
+    const pd = platformMap[pk];
+    pd.items.sort((a,b)=>a.sort-b.sort);
+    const tc = pd.items.reduce((s,i)=>s+i.count,0);
+    const ta = pd.items.reduce((s,i)=>s+parseFloat(i.amount),0);
+    platforms.push({ platform:pd.name, key:pd.key, verifier:'', items:pd.items, totalCount:tc, totalAmount:ta.toFixed(2) });
+  }
+  return { summary, platforms };
+}
+
+// ══════════════════════════════════════════
+// 渲染
+// ══════════════════════════════════════════
+function formatMoney(v) { return '¥' + parseFloat(v).toLocaleString('zh-CN',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+
+function renderContent(data, isSell) {
+  const div = document.getElementById('contentArea');
+  if (!data) { div.innerHTML = ''; return; }
+
+  let html = '';
+
+  // 汇总
+  html += '<div class="summary"><h3>'+(isSell?'售票汇总':'核销汇总')+'</h3><div class="summary-grid">';
+  if (isSell) {
+    html += '<div class="summ-item"><label>总票数</label><div class="v">'+data.summary.totalCount+'张</div></div>';
+    html += '<div class="summ-item"><label>总金额</label><div class="v">'+formatMoney(data.summary.totalAmount)+'</div></div>';
+    html += '<div class="summ-item"><label>退票数</label><div class="v">'+data.summary.refundCount+'张</div></div>';
+    html += '<div class="summ-item"><label>退款金额</label><div class="v">'+formatMoney(data.summary.refundAmount)+'</div></div>';
+    html += '<div class="summ-item"><label>实际票数</label><div class="v">'+data.summary.actualCount+'张</div></div>';
+    html += '<div class="summ-item"><label>实际金额</label><div class="v">'+formatMoney(data.summary.actualAmount)+'</div></div>';
+  } else {
+    html += '<div class="summ-item"><label>总票数</label><div class="v">'+data.summary.totalCount+'张</div></div>';
+    html += '<div class="summ-item"><label>总金额</label><div class="v">'+formatMoney(data.summary.totalAmount)+'</div></div>';
+  }
+  html += '</div></div>';
+
+  // 平台列表
+  for (const plat of data.platforms||[]) {
+    html += '<div class="platform-card">';
+    html += '<div class="platform-header '+platformColorClass(plat.key)+'">';
+    html += '<span class="name">'+plat.platform+'</span>';
+    html += '<span class="stat">'+plat.totalCount+'张 | '+formatMoney(plat.totalAmount)+'</span>';
+    html += '</div>';
+
+    // 表头
+    html += '<div class="platform-header-row">';
+    if (!isSell) html += '<span style="width:70px">核销员</span>';
+    html += '<span style="flex:1">票种</span>';
+    html += '<span style="width:55px;text-align:center">张数</span>';
+    if (isSell) html += '<span style="width:55px;text-align:center">退票</span>';
+    html += '<span style="width:85px;text-align:right">金额</span>';
+    html += '</div>';
+
+    html += '<div class="platform-body">';
+    for (const item of plat.items||[]) {
+      html += '<div class="platform-row">';
+      if (!isSell) html += '<span style="width:70px;font-size:13px;color:#757575">'+item.verifier+'</span>';
+      html += '<span class="ticket-type">'+item.ticketType+'</span>';
+      html += '<span class="ticket-count">'+item.count+'张</span>';
+      if (isSell) html += '<span class="ticket-refund">'+(item.refundCount>0?item.refundCount+'张':'')+'</span>';
+      html += '<span class="ticket-amount">'+formatMoney(item.amount)+'</span>';
+      html += '</div>';
+    }
+    html += '</div>';
+    html += '</div>';
+  }
+
+  div.innerHTML = html || '<div style="text-align:center;padding:40px;color:#757575">暂无数据</div>';
+}
+
+// ══════════════════════════════════════════
+// 页面切换
+// ══════════════════════════════════════════
+function showMainPage() {
+  document.getElementById('loginPage').style.display = 'none';
+  document.getElementById('mainPage').style.display = 'block';
+
+  const today = new Date().toISOString().split('T')[0];
+  const sd = document.getElementById('startDate');
+  const ed = document.getElementById('endDate');
+  if (!sd.value) sd.value = today;
+  if (!ed.value) ed.value = today;
+
+  refreshData();
+}
+
+function showLoginPage() {
+  document.getElementById('mainPage').style.display = 'none';
+  document.getElementById('loginPage').style.display = 'flex';
+  token = '';
+  sellData = null;
+  verifyData = null;
+  document.getElementById('contentArea').innerHTML = '';
+}
+
+function switchTab(tab) {
+  currentTab = tab;
+  document.getElementById('tabSell').className = 'tab' + (tab===0?' active':'');
+  document.getElementById('tabVerify').className = 'tab' + (tab===1?' active':'');
+  if (tab===0) renderContent(sellData, true);
+  else renderContent(verifyData, false);
+}
+
+// ══════════════════════════════════════════
+// 数据加载
+// ══════════════════════════════════════════
+async function loadSellData(sd, ed) {
+  try {
+    document.getElementById('contentArea').innerHTML = '<div class="loading-box"><div class="spinner" style="border-top-color:#2196F3;border-color:#bdbdbd;border-top-color:#2196F3;"></div><p style="margin-top:14px;color:#757575">加载中...</p></div>';
+    const result = await apiGetSellReport(sd+' 00:00:00', ed+' 23:59:59');
+    sellData = result;
+    if (currentTab === 0) renderContent(sellData, true);
+  } catch(e) {
+    if (currentTab === 0) {
+      document.getElementById('contentArea').innerHTML = '<div class="error-box"><p>'+e.message+'</p><button onclick="loadSellData(getDates())">重试</button></div>';
+    }
+    sellData = null;
+  }
+}
+
+async function loadVerifyData(sd, ed) {
+  try {
+    const result = await apiGetVerifyReport(sd+' 00:00:00', ed+' 23:59:59');
+    verifyData = result;
+    if (currentTab === 1) renderContent(verifyData, false);
+  } catch(e) {
+    if (currentTab === 1) {
+      document.getElementById('contentArea').innerHTML = '<div class="error-box"><p>'+e.message+'</p><button onclick="loadVerifyData(getDates())">重试</button></div>';
+    }
+    verifyData = null;
+  }
+}
+
+function getDates() {
+  return {
+    sd: document.getElementById('startDate').value,
+    ed: document.getElementById('endDate').value
+  };
+}
+
+async function refreshData() {
+  if (!token) { showLoginPage(); return; }
+  const {sd, ed} = getDates();
+  await Promise.all([loadSellData(sd, ed), loadVerifyData(sd, ed)]);
+}
+
+// ══════════════════════════════════════════
+// 登录 / 退出
+// ══════════════════════════════════════════
+async function login() {
+  const username = document.getElementById('username').value.trim();
+  const password = document.getElementById('password').value;
+  const remember = document.getElementById('rememberPwd').checked;
+  const btn = document.getElementById('loginBtn');
+  const err = document.getElementById('loginError');
+
+  if (!username || !password) return;
+  err.style.display = 'none';
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>';
+
+  try {
+    const data = await apiLogin(username, password);
+    token = data.Token;
+    userId = data.Id;
+    userName = data.UserName;
+    organizeId = data.OrganId;
+    saveLogin();
+    if (remember) saveRemember(username, password);
+    else localStorage.removeItem('ticket_remember');
+    showMainPage();
+  } catch(e) {
+    err.textContent = e.message;
+    err.style.display = 'block';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '登录';
+  }
+}
+
+function logout() {
+  const remember = document.getElementById('rememberPwd').checked;
+  const usr = document.getElementById('username').value;
+  const pwd = document.getElementById('password').value;
+  localStorage.removeItem('ticket_login');
+  if (!remember) localStorage.removeItem('ticket_remember');
+  else if (usr) saveRemember(usr, pwd);
+  hideLogoutDialog();
+  showLoginPage();
+}
+
+// ══════════════════════════════════════════
+// 对话框
+// ══════════════════════════════════════════
+function showLogoutDialog() { document.getElementById('logoutDialog').classList.add('show'); }
+function hideLogoutDialog() { document.getElementById('logoutDialog').classList.remove('show'); }
+
+// ══════════════════════════════════════════
+// 初始化
+// ══════════════════════════════════════════
+document.getElementById('username').addEventListener('keydown', e => { if (e.key==='Enter') document.getElementById('password').focus(); });
+document.getElementById('password').addEventListener('keydown', e => { if (e.key==='Enter') login(); });
+loadRemember();
+
+if (loadLogin()) {
+  showMainPage();
+}
+</script>
+</body>
+</html>
