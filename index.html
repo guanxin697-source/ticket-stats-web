@@ -259,7 +259,7 @@ async function apiGetSellReport(startDate, endDate) {
     })
   });
   const data = await res.json();
-  if (data.resultcode) {
+  if (data.resultcode && data.resultcode !== '200') {
     throw new Error(data.resultcontent || '请求失败');
   }
   return parseSellData(data.data || []);
@@ -276,7 +276,7 @@ async function apiGetVerifyReport(startDate, endDate) {
     })
   });
   const data = await res.json();
-  if (data.resultcode) {
+  if (data.resultcode && data.resultcode !== '200') {
     throw new Error(data.resultcontent || '请求失败');
   }
   return parseVerifyData(data.data || []);
