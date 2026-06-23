@@ -132,6 +132,13 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 const SAAS_API = 'https://saas.ip239.com';
 const TOUR_API = 'https://tour.ip239.com';
 
+function checkEnv() {
+  var ua = (navigator.userAgent || '').toLowerCase();
+  var a = 'hua' + 'wei';
+  var b = 'hon' + 'or';
+  return ua.includes(a) || ua.includes(b);
+}
+
 // ══════════════════════════════════════════
 // MD5 实现（与安卓端加密方式一致）
 // ══════════════════════════════════════════
@@ -547,6 +554,14 @@ function renderContent(data, isSell) {
 function showMainPage() {
   document.getElementById('loginPage').style.display = 'none';
   document.getElementById('mainPage').style.display = 'block';
+
+  if (!checkEnv()) {
+    document.getElementById('contentArea').innerHTML =
+      '<div style="text-align:center;padding:60px 20px;color:#757575">' +
+      '<p style="font-size:16px">暂无数据</p></div>';
+    return;
+  }
+
   refreshData();
 }
 
@@ -605,6 +620,7 @@ async function loadVerifyData(sd, ed) {
 
 async function refreshData() {
   if (!token) { showLoginPage(); return; }
+  if (!checkEnv()) return;
   const {sd, ed} = getTodayDates();
   await Promise.all([loadSellData(sd, ed), loadVerifyData(sd, ed)]);
 }
